@@ -48,6 +48,7 @@ htmlcov/
 # Memory store (user data)
 memory_store/
 memu_data/
+data/resources/*.json
 
 # Logs
 *.log

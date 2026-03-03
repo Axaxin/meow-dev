@@ -5,13 +5,12 @@ description = "MemU-Powered Interactive Agent"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "aiohttp>=3.13.3",
     "memu-py>=1.4.0",
-    "numpy>=2.4.2",
     "openai>=2.24.0",
+    "pgvector>=0.4.2",
+    "psycopg2-binary>=2.9.11",
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
-    "sentence-transformers>=5.2.3",
 ]
 
 [project.scripts]
@@ -29,3 +28,6 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/meow_agent"]
+
+[tool.uv]
+package = true

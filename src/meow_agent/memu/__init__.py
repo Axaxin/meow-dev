@@ -1,6 +1,5 @@
-"""MemU client and storage modules."""
+"""MemU client module."""
 
 from meow_agent.memu.client import MemUClient
-from meow_agent.memu.local_store import LocalMemoryStore
 
-__all__ = ["MemUClient", "LocalMemoryStore"]
+__all__ = ["MemUClient"]

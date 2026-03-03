@@ -71,6 +71,13 @@ async def run_interactive(
 
         config.settings.verbose = True
 
+    # Check API key configuration
+    if not settings.dashscope_api_key or settings.dashscope_api_key == "your_dashscope_api_key_here":
+        print("\n⚠️  警告: API Key 未配置！")
+        print("   请在 .env 文件中设置 DASHSCOPE_API_KEY")
+        print("   示例: DASHSCOPE_API_KEY=sk-xxxxx\n")
+        print("   你可以继续使用，但 AI 回答功能将不可用。\n")
+
     # Initialize components
     print("Initializing MemU-Powered Agent...")
 

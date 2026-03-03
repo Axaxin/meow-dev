@@ -24,29 +24,51 @@ wheels/
 .venv/
 venv/
 ENV/
+env/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+.hypothesis/
 
 # Environment
 .env
 .env.local
+.env.*.local
 
 # Memory store (user data)
-memory_store/*.json
+memory_store/
+memu_data/
 
 # Logs
 *.log
+logs/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+backup.sql
+
+# Docker
+docker-compose.override.yml

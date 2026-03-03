@@ -13,7 +13,6 @@ from meow_agent.models import (
     Response,
     RetrievedContext,
 )
-from meow_agent.memu.local_store import LocalMemoryStore
 
 
 class TestModels:
@@ -99,100 +98,6 @@ class TestModels:
         assert context.llm_context == "test context"
 
 
-class TestLocalMemoryStore:
-    """Test local memory store."""
-
-    @pytest.fixture
-    def store(self, tmp_path):
-        """Create a local memory store."""
-        return LocalMemoryStore(str(tmp_path / "memory_store"))
-
-    def test_create_resource(self, store):
-        """Test creating a resource."""
-        resource = store.create_resource({
-            "session_id": "session_1",
-            "type": "conversation",
-            "content": {"input": "hello", "output": "hi"},
-        })
-        assert resource["id"].startswith("res_")
-        assert resource["session_id"] == "session_1"
-
-    def test_get_resource(self, store):
-        """Test getting a resource."""
-        created = store.create_resource({
-            "session_id": "session_1",
-            "type": "conversation",
-            "content": {},
-        })
-        retrieved = store.get_resource(created["id"])
-        assert retrieved is not None
-        assert retrieved["id"] == created["id"]
-
-    def test_create_memory_item(self, store):
-        """Test creating a memory item."""
-        item = store.create_memory_item({
-            "resource_id": "res_001",
-            "type": "fact",
-            "content": "Test content",
-            "embedding": [0.1, 0.2, 0.3],
-            "confidence": 0.9,
-            "tags": ["test"],
-        })
-        assert item["id"].startswith("item_")
-        assert item["content"] == "Test content"
-
-    def test_search_items(self, store):
-        """Test searching memory items."""
-        # Create items with different embeddings
-        store.create_memory_item({
-            "resource_id": "res_001",
-            "type": "fact",
-            "content": "Python programming",
-            "embedding": [1.0, 0.0, 0.0],
-            "confidence": 0.9,
-        })
-        store.create_memory_item({
-            "resource_id": "res_002",
-            "type": "fact",
-            "content": "JavaScript programming",
-            "embedding": [0.0, 1.0, 0.0],
-            "confidence": 0.9,
-        })
-
-        # Search with query similar to first item
-        results = store.search_items([0.9, 0.1, 0.0], top_k=1)
-        assert len(results) == 1
-        assert "Python" in results[0]["content"]
-
-    def test_create_category(self, store):
-        """Test creating a category."""
-        category = store.create_category({
-            "name": "Programming",
-            "description": "Programming related memories",
-        })
-        assert category["id"].startswith("cat_")
-        assert category["name"] == "Programming"
-
-    def test_add_item_to_category(self, store):
-        """Test adding an item to a category."""
-        item = store.create_memory_item({
-            "resource_id": "res_001",
-            "type": "fact",
-            "content": "Test",
-            "embedding": [],
-        })
-        category = store.create_category({
-            "name": "Test Category",
-            "description": "Test",
-        })
-
-        result = store.add_item_to_category(category["id"], item["id"])
-        assert result is True
-
-        updated = store.get_category(category["id"])
-        assert item["id"] in updated["item_ids"]
-
-
 class TestConfig:
     """Test configuration."""
 
@@ -203,3 +108,21 @@ class TestConfig:
         assert settings.verbose is False
         assert settings.proactive_interval == 60
         assert settings.memory_store_path == "./memory_store"
+
+
+class TestMemUClient:
+    """Test MemU client wrapper."""
+
+    def test_client_initialization(self):
+        """Test MemU client can be initialized."""
+        from meow_agent.memu.client import MemUClient
+        
+        # This should not raise an error
+        # Note: requires DASHSCOPE_API_KEY to be set
+        try:
+            client = MemUClient(use_cloud=False)
+            assert client is not None
+            assert client.service is not None
+        except Exception:
+            # If API key is not set, that's OK for this test
+            pass

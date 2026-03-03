@@ -24,35 +24,31 @@ class Settings(BaseSettings):
         description="Model name to use",
     )
 
-    # MemU API settings
-    memu_api_key: str = Field(default="", description="MemU API key")
-    memu_endpoint: str = Field(
-        default="https://api.memu.so",
-        description="MemU API endpoint",
-    )
-
-    # Embedding settings
-    embedding_type: str = Field(
-        default="api",
-        description="Embedding type: 'api' for remote API, 'local' for sentence-transformers",
-    )
+    # Embedding settings (optional - memU has defaults)
+    # Required for memU to work properly
     embedding_api_key: str = Field(
         default="",
-        description="Embedding API key (defaults to dashscope_api_key if not set)",
+        description="Embedding API key (for custom embedding provider)",
     )
     embedding_base_url: str = Field(
         default="",
-        description="Embedding API base URL (for OpenAI-compatible endpoints)",
+        description="Embedding API base URL (e.g., http://127.0.0.1:1234/v1)",
     )
     embedding_model: str = Field(
-        default="text-embedding-qwen3-embedding-0.6b",
-        description="Embedding model name or path",
+        default="",
+        description="Embedding model name (e.g., text-embedding-nomic-embed-text-v1.5)",
     )
 
     # Memory settings
     memory_store_path: str = Field(
         default="./memory_store",
-        description="Path to local memory store",
+        description="Path to memory storage directory",
+    )
+    
+    # Database settings (for persistent storage)
+    database_url: str = Field(
+        default="",
+        description="Database URL for persistent storage (e.g., postgresql://user:pass@localhost:5432/memu)",
     )
 
     # Agent settings

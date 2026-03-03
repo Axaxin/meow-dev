@@ -54,30 +54,26 @@ class MainAgent:
         Returns:
             Agent response.
         """
-        # Publish user input event
         if self.event_bus:
             await self.event_bus.publish_user_input(session_id, user_query)
 
-        # 1. Retrieve relevant memories (hybrid mode)
+        await self.wait_for_storage()
+
         memories = await self.memu.retrieve(
             query=user_query,
             session_id=session_id,
             mode="hybrid",
         )
 
-        # 2. Build enhanced context
         context = self._build_context(user_query, memories)
 
-        # 3. Generate response using LLM
         response_content = await self._generate_response(context)
 
-        # 4. Create response object
         response = Response(
             content=response_content,
             session_id=session_id,
         )
 
-        # 5. Publish agent output event (triggers memory storage)
         if self.event_bus:
             await self.event_bus.publish_agent_output(
                 session_id,
@@ -85,7 +81,6 @@ class MainAgent:
                 metadata={"query": user_query},
             )
 
-        # 6. Store interaction asynchronously (non-blocking)
         task = asyncio.create_task(
             self.memu.memorize_interaction(
                 session_id=session_id,
@@ -94,7 +89,6 @@ class MainAgent:
             )
         )
         self._pending_tasks.append(task)
-        # Clean up completed tasks
         self._pending_tasks = [t for t in self._pending_tasks if not t.done()]
 
         return response

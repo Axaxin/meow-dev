@@ -1,6 +1,7 @@
 """MemU Bot for memory extraction and proactive intelligence."""
 
 import asyncio
+import time
 from typing import Any
 
 from meow_agent.config import settings
@@ -27,6 +28,7 @@ class MemUBot:
         self.event_bus = event_bus
         self._running = False
         self._last_session_id: str | None = None
+        self._last_proactive_time: float = 0.0
 
     async def monitor_loop(self) -> None:
         """Continuously monitor events and process them."""
@@ -98,26 +100,37 @@ class MemUBot:
 
     async def _run_proactive_tasks(self) -> None:
         """Run proactive tasks periodically."""
+        current_time = time.time()
+        min_interval = max(settings.proactive_interval, 60)
+        
+        if current_time - self._last_proactive_time < min_interval:
+            if settings.verbose:
+                wait_time = int(min_interval - (current_time - self._last_proactive_time))
+                print(f"[MemUBot] Skipping proactive tasks (next in {wait_time}s)")
+            return
+        
+        self._last_proactive_time = current_time
+        
         if settings.verbose:
             print("[MemUBot] Running proactive tasks...")
 
-        # Check for hot topics
-        hot_topics = await self.memu.get_hot_topics(threshold=0.7)
+        try:
+            hot_topics = await self.memu.get_hot_topics(threshold=0.7)
 
-        # Generate proactive suggestions for hot topics
-        for topic in hot_topics[:2]:  # Top 2 hot topics
-            confidence = topic.get("relevance_score", 0.5)
-            if confidence > 0.8 and self._last_session_id:
-                # Publish a proactive suggestion
-                suggestion = f"基于您之前的兴趣，您可能想继续了解: {topic.get('name', '相关话题')}"
-                await self.event_bus.publish_proactive_suggestion(
-                    self._last_session_id,
-                    suggestion,
-                    confidence=confidence,
-                )
+            for topic in hot_topics[:2]:
+                confidence = topic.get("relevance_score", 0.5)
+                if confidence > 0.8 and self._last_session_id:
+                    suggestion = f"基于您之前的兴趣，您可能想继续了解: {topic.get('name', '相关话题')}"
+                    await self.event_bus.publish_proactive_suggestion(
+                        self._last_session_id,
+                        suggestion,
+                        confidence=confidence,
+                    )
 
-        # Check if reorganization is needed
-        await self.memu.reorganize_if_needed()
+            await self.memu.reorganize_if_needed()
+        except Exception as e:
+            if settings.verbose:
+                print(f"[MemUBot] Error in proactive tasks: {e}")
 
     def stop(self) -> None:
         """Stop the monitor loop."""

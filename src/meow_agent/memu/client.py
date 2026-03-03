@@ -64,11 +64,11 @@ class MemUClient:
         
         # Configure database
         if settings.database_url:
-            # Use PostgreSQL
             database_config = {
                 "metadata_store": {
                     "provider": "postgres",
-                    "connection_string": settings.database_url,
+                    "dsn": settings.database_url,
+                    "ddl_mode": "create",
                 }
             }
             if settings.verbose:
@@ -205,57 +205,138 @@ class MemUClient:
             query: Query string.
             session_id: Session identifier.
             mode: Retrieval mode ('rag', 'llm', or 'hybrid').
-            top_k: Number of results (not used in memU, for compatibility).
+            top_k: Number of results.
 
         Returns:
             Retrieved context.
         """
         if settings.verbose:
-            print(f"[MemU] Retrieving memories for: {query[:50]}...")
-
-        # Build query for memU
-        queries = [{"role": "user", "content": {"text": query}}]
-
-        # Use RAG mode for hybrid (faster)
-        method = "rag" if mode == "hybrid" else mode
+            print(f"[MemU] Retrieving memories for: {query[:80]}...")
 
         try:
-            result = await self.service.retrieve(
-                queries=queries,
-                where={"user_id": session_id},
-            )
-
-            # Extract results
-            items = result.get("items", [])
-            categories = result.get("categories", [])
-            llm_context = result.get("llm_context", "")
-
+            # Try memU SDK retrieve first
+            result = await self._retrieve_with_memu(query, session_id, mode)
+            
+            # If SDK returns results, use them
+            if result.items:
+                return result
+            
+            # Fallback: Use direct database query if SDK returns empty
             if settings.verbose:
-                print(f"[MemU] ✅ Retrieved successfully")
-                print(f"[MemU] Found {len(items)} memory items")
-                if items:
-                    for i, item in enumerate(items[:3], 1):
-                        memory_type = item.get("memory_type", "unknown")
-                        summary = item.get("summary", item.get("content", ""))[:60]
-                        print(f"[MemU]   {i}. [{memory_type}] {summary}...")
-                print(f"[MemU] Found {len(categories)} categories")
-                if categories:
-                    for i, cat in enumerate(categories[:2], 1):
-                        name = cat.get("name", "")
-                        print(f"[MemU]   {i}. {name}")
-
-            return RetrievedContext(
-                items=items,
-                categories=categories,
-                llm_context=llm_context,
-            )
-
+                print(f"[MemU] SDK returned no results, using direct DB fallback...")
+            
+            if settings.database_url:
+                return await self._retrieve_from_postgres(query, session_id, top_k)
+            else:
+                return result
+                
         except Exception as e:
             if settings.verbose:
                 print(f"[MemU] ❌ Retrieve failed: {e}")
-                import traceback
-                traceback.print_exc()
             return RetrievedContext()
+    
+    async def _retrieve_with_memu(
+        self, query: str, session_id: str, mode: str
+    ) -> RetrievedContext:
+        """Retrieve using memU SDK."""
+        queries = [{"role": "user", "content": {"text": query}}]
+        method = "rag" if mode == "hybrid" else mode
+        
+        result = await self.service.retrieve(
+            queries=queries,
+            where={"user_id": session_id},
+        )
+        
+        items = result.get("items", [])
+        categories = result.get("categories", [])
+        llm_context = result.get("llm_context", "")
+        
+        if settings.verbose:
+            print(f"[MemU] SDK retrieved {len(items)} items, {len(categories)} categories")
+        
+        return RetrievedContext(
+            items=items,
+            categories=categories,
+            llm_context=llm_context,
+        )
+    
+    async def _retrieve_from_postgres(
+        self, query: str, session_id: str, top_k: int
+    ) -> RetrievedContext:
+        """Direct PostgreSQL vector search fallback.
+        
+        This is a temporary workaround for memU SDK retrieve() instability.
+        TODO: Remove this when memU SDK retrieve() is fixed.
+        """
+        from openai import AsyncOpenAI
+        import psycopg2
+        
+        client = AsyncOpenAI(
+            api_key=settings.embedding_api_key,
+            base_url=settings.embedding_base_url,
+        )
+        
+        response = await client.embeddings.create(
+            model=settings.embedding_model,
+            input=query,
+        )
+        embedding = response.data[0].embedding
+        embedding_str = '[' + ','.join(str(x) for x in embedding) + ']'
+        
+        conn = psycopg2.connect(settings.database_url)
+        cur = conn.cursor()
+        
+        try:
+            cur.execute("""
+                SELECT id, memory_type, summary, 1 - (embedding <=> %s::vector) as similarity
+                FROM memory_items
+                WHERE user_id = %s
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+            """, (embedding_str, session_id, embedding_str, top_k))
+            
+            items = []
+            for row in cur.fetchall():
+                items.append({
+                    "id": row[0],
+                    "memory_type": row[1],
+                    "summary": row[2],
+                    "similarity": float(row[3]),
+                })
+            
+            cur.execute("""
+                SELECT DISTINCT c.name, c.summary
+                FROM memory_categories c
+                JOIN category_items ci ON c.id = ci.category_id
+                JOIN memory_items mi ON ci.item_id = mi.id
+                WHERE mi.user_id = %s
+                LIMIT 5
+            """, (session_id,))
+            
+            categories = []
+            for row in cur.fetchall():
+                categories.append({
+                    "name": row[0],
+                    "summary": row[1] or "",
+                })
+            
+            if settings.verbose:
+                print(f"[MemU] ✅ Direct DB retrieved {len(items)} items, {len(categories)} categories")
+                if items:
+                    for i, item in enumerate(items[:3], 1):
+                        print(f"[MemU]   {i}. [{item['memory_type']}] {item['summary'][:60]}... (sim: {item['similarity']:.3f})")
+                if categories:
+                    for i, cat in enumerate(categories[:2], 1):
+                        print(f"[MemU]   {i}. {cat['name']}")
+            
+            return RetrievedContext(
+                items=items,
+                categories=categories,
+                llm_context="",
+            )
+        finally:
+            cur.close()
+            conn.close()
 
     # ═══════════════════════════════════════════════════════════
     # Memory Management Operations

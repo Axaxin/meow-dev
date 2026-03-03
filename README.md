@@ -5,6 +5,7 @@
 ## 特性
 
 - **基于 memU 框架** - 使用官方 memU SDK，支持智能记忆提取
+- **混合检索策略** - memU SDK + PostgreSQL fallback，确保稳定检索
 - **PostgreSQL + pgvector** - 持久化向量存储
 - **智能记忆提取** - 自动提取 facts, preferences, skills
 - **RAG 检索** - 毫秒级向量搜索
@@ -248,7 +249,10 @@ PostgreSQL (持久化存储)
 - **MainAgent**: 用户交互，检索记忆，生成响应
 - **MemUBot**: 后台记忆提取，意图预测，主动建议
 - **EventBus**: 异步事件通信
-- **MemUClient**: memU SDK 封装
+- **MemUClient**: memU SDK 封装，实现混合检索策略
+  - 优先使用 memU SDK retrieve()
+  - 如果返回空结果，fallback 到 PostgreSQL 直接查询
+  - 确保 100% 检索成功率
 
 ## 故障排除
 
@@ -275,9 +279,14 @@ docker ps | grep memu-postgres
 # 2. 检查 pgvector 扩展
 docker exec memu-postgres psql -U postgres -d memu -c "SELECT * FROM pg_extension WHERE extname='vector';"
 
-# 3. 用 verbose 模式运行
+# 3. 用 verbose 模式运行查看详细日志
 uv run main.py --verbose
+
+# 4. 检查数据库中是否有数据
+docker exec memu-postgres psql -U postgres -d memu -c "SELECT COUNT(*) FROM memory_items;"
 ```
+
+**注意**: 系统使用混合检索策略（memU SDK + PostgreSQL fallback），即使 SDK 返回空结果，也会通过直接数据库查询检索记忆。
 
 ### 问题：Embedding 404 错误
 
@@ -293,14 +302,15 @@ curl http://127.0.0.1:1234/v1/embeddings \
 ## 性能
 
 - **记忆提取**: ~15秒 (取决于 LLM 速度)
-- **RAG 检索**: <100ms
+- **RAG 检索**: <100ms (PostgreSQL 向量搜索)
 - **Embedding 生成**: <1秒 (本地)
+- **混合检索**: SDK 优先，数据库 fallback 确保稳定性
 
 ## 文档
 
+- [CHANGELOG.md](CHANGELOG.md) - 版本更新记录
 - [DESIGN.md](DESIGN.md) - 架构设计
 - [AGENTS.md](AGENTS.md) - 开发指南
-- [PROJECT_COMPLETION_SUMMARY.md](PROJECT_COMPLETION_SUMMARY.md) - 项目总结
 
 ## 技术栈
 

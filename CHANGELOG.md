@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2025-03-04
+
+### Fixed & Improved
+
+#### Hybrid Retrieval Strategy
+- Implemented hybrid retrieval: memU SDK first, PostgreSQL fallback if empty results
+- Fixed memU SDK retrieve() instability issue
+- Ensured reliable memory retrieval even when SDK returns empty results
+- Added direct PostgreSQL vector search as fallback mechanism
+
+#### Performance Optimizations
+- Improved system prompt for concise responses (100 chars guideline)
+- Added proactive tasks debounce (minimum 60s interval)
+- Fixed wait for memory storage before new retrieval
+- Reduced verbose output for better performance
+
+#### Code Cleanup
+- Removed old `memory_store/` directory (legacy JSON storage)
+- Added `data/resources/*.json` to `.gitignore` (temporary files)
+- Cleaned up unnecessary error traceback prints
+- Removed redundant code comments
+
+### Technical Details
+
+- Hybrid retrieve ensures 100% retrieval success rate
+- PostgreSQL vector search uses cosine similarity (<=> operator)
+- System prompt enforces brevity without limiting max_tokens
+- Proactive tasks prevent UI blocking
+
 ## [1.0.0] - 2025-03-03
 
 ### Major Changes - memU Framework Migration

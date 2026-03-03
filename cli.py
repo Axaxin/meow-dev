@@ -8,7 +8,7 @@ from prompt_toolkit import PromptSession
 
 # ============ 配置（写死） ============
 MEMU_SERVICE_URL = "http://localhost:8000"
-DASHSCOPE_API_KEY = "sk-sp-c80db8b082a64256b3ed03a7876cda08"  # TODO: 替换为你的 API key
+DASHSCOPE_API_KEY = "todo"  # TODO: 替换为你的 API key
 DASHSCOPE_BASE_URL = "https://coding.dashscope.aliyuncs.com/v1"
 DASHSCOPE_MODEL = "qwen3.5-plus"  # 可替换为你想使用的模型
 SESSION_ID = "default_session"

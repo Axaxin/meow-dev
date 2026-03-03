@@ -4,52 +4,81 @@ This file provides guidance to AI coding agents working on this repository.
 
 ## Project Overview
 
-MemU-Powered Interactive Agent - An AI agent with three-layer memory architecture and long-term memory capabilities using the MemU framework.
+**MemU Service + CLI Client** - A memory storage service with independent CLI client, using the memU framework.
+
+**Current Version**: v1.1.0
+
+**Architecture**:
+- **MemU Service**: Independent FastAPI service (port 8000)
+- **CLI Client**: Single-file client (cli.py)
+- **Memory Storage**: PostgreSQL + pgvector (via memU SDK)
 
 **Tech Stack:**
 - Python 3.13+
 - Package Manager: uv
 - LLM Backend: DashScope (OpenAI-compatible endpoint)
-- Memory Storage: Local JSON file storage
+- Memory Framework: memU SDK (official)
+- Database: PostgreSQL + pgvector
+- API Framework: FastAPI
 - Testing: pytest with pytest-asyncio
 
 ## Build/Lint/Test Commands
 
 ### Initial Setup
 ```bash
-# Install dependencies and package in editable mode
+# Install dependencies
 uv sync
 
 # Copy environment file and configure API keys
 cp .env.example .env
 
 # Edit .env with your API keys
-# IMPORTANT: You must set DASHSCOPE_API_KEY to use the agent
+# IMPORTANT: You must set DASHSCOPE_API_KEY to use the service
 # Example:
 # DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxx
 # DASHSCOPE_BASE_URL=https://coding.dashscope.aliyuncs.com/v1
-# DASHSCOPE_MODEL=kimi-k2.5
+# DASHSCOPE_MODEL=gpt-4o-mini
+# DATABASE_URL=postgresql://postgres:postgres@localhost:5432/memu
 
 # Verify installation
-uv run python -c "from meow_agent.main import main; print('OK')"
+uv run python -c "from meow_agent.service import app; print('OK')"
 ```
 
 ### Running the Application
+
+**Terminal 1 - Start MemU Service:**
 ```bash
-# Run in local mode (default)
-uv run main.py
+# Start service (default port 8000)
+uv run service.py
 
-# Run with verbose output
-uv run main.py --verbose
+# Or use uvicorn directly
+uv run uvicorn src.meow_agent.service:app --host 0.0.0.0 --port 8000 --reload
 
-# Run with custom session ID
-uv run main.py --session-id my_session
+# Or use installed script
+uv run memu-service
+```
 
-# Run with specific mode
-uv run main.py --mode local
+**Terminal 2 - Start CLI Client:**
+```bash
+# Start CLI (auto-configures to smart mode)
+uv run cli.py
+```
 
-# Alternative: use the installed script entry point
-uv run meow-agent
+### Dynamic Configuration
+
+```bash
+# Switch to fast mode (recommended for most cases)
+curl -X POST http://localhost:8000/api/v1/config/retrieve-mode \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"fast"}'
+
+# Switch to smart mode (more intelligent, slower)
+curl -X POST http://localhost:8000/api/v1/config/retrieve-mode \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"smart"}'
+
+# View current configuration
+curl http://localhost:8000/api/v1/config
 ```
 
 ### Running Tests
@@ -123,9 +152,9 @@ from pydantic import Field
 from pydantic_settings import BaseSettings
 
 # Local imports
-from meow_agent.config import settings
-from meow_agent.models import Resource, MemoryItem
-from meow_agent.memu.local_store import LocalMemoryStore
+from meow_agent.core.config import settings
+from meow_agent.core.models import RetrievedContext
+from meow_agent.service.client import MemUServiceClient
 ```
 
 ### Formatting

@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -15,61 +16,27 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
 # Testing
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
 
 # Environment
 .env
-.env.local
-.env.*.local
 
-# Memory store (user data)
-memory_store/
-memu_data/
-data/resources/*.json
-
-# Logs
-*.log
-logs/
+# IDEs
+.vscode/
+.idea/
 
 # OS
 .DS_Store
-Thumbs.db
 
-# Temporary
-tmp/
-temp/
-*.tmp
-*.bak
-*.backup
+# Project specific
+memory_store/
+data/resources/*.json
+.cli_history
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-backup.sql
-
-# Docker
-docker-compose.override.yml
+# CLI with hardcoded config
+cli.py

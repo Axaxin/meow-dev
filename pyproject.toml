@@ -1,7 +1,7 @@
 [project]
 name = "meow-agent"
-version = "0.1.0"
-description = "MemU-Powered Interactive Agent"
+version = "1.1.0"
+description = "MemU-Powered Interactive Agent with Dynamic Configuration"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -11,10 +11,14 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "requests>=2.31.0",
+    "prompt-toolkit>=3.0.43",
 ]
 
 [project.scripts]
-meow-agent = "meow_agent.main:main"
+memu-service = "meow_agent.service.main:run"
 
 [dependency-groups]
 dev = [

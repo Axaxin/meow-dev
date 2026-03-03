@@ -1,83 +1,72 @@
-# MemU-Powered Interactive Agent - 设计文档
+# MemU Service + CLI Client - 设计文档
+
+**当前版本**: v1.1.0
 
 ## 1. 架构概述
 
-本项目基于 [memU 框架](https://github.com/NevaMind-AI/memU) 构建，实现 24/7 主动记忆 AI Agent。
+本项目基于 [memU 框架](https://github.com/NevaMind-AI/memU) 构建，采用服务 + 客户端分离架构。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              USER INTERFACE (CLI)                            │
+│                         MemU Service (FastAPI)                               │
+│                              端口 8000                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  API 层                                                                       │
+│  ├── POST /api/v1/memorize                                                  │
+│  ├── POST /api/v1/retrieve                                                  │
+│  ├── GET  /api/v1/config                                                    │
+│  ├── POST /api/v1/config/retrieve-mode                                      │
+│  └── GET  /health                                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  业务层                                                                       │
+│  ├── MemUServiceClient (包装 memU SDK)                                      │
+│  ├── 动态配置管理 (fast/smart/llm 模式)                                      │
+│  └── 智能缓存 (5分钟 TTL)                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  数据层                                                                       │
+│  ├── memU SDK (官方)                                                        │
+│  └── PostgreSQL + pgvector                                                  │
 └─────────────────────────────────────────────────────────────────────────────┘
-                                        │
-            ┌───────────────────────────┼───────────────────────────┐
-            ▼                           ▼                           ▼
-┌─────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────┐
-│   🤖 MAIN AGENT     │  │    🔄 EVENT BUS         │  │    🧠 MEMU BOT      │
-│  (User-Facing)      │◄─┤   (Async Pub/Sub)       │─┤│  (Background)       │
-├─────────────────────┤  └─────────────────────────┘  ├─────────────────────┤
-│ • Receive query     │                               │ • Monitor events    │
-│ • Retrieve memories │                               │ • Intent prediction │
-│ • Build context     │                               │ • Proactive tasks   │
-│ • Generate response │                               │ • Hot topic tracking│
-│ • Store interaction │                               │                     │
-└─────────────────────┘                               └─────────────────────┘
-                                        │                           │
-                                        └───────────┬───────────────┘
-                                                    ▼
-                                        ┌─────────────────────────┐
-                                        │   🧠 MEMU SERVICE       │
-                                        │  (Official memU SDK)    │
-                                        ├─────────────────────────┤
-                                        │  MemoryService          │
-                                        │  • memorize()           │
-                                        │  • retrieve()           │
-                                        │  • RAG/LLM retrieval    │
-                                        └─────────────────────────┘
-                                                    │
-                                                    ▼
-                                        ┌─────────────────────────┐
-                                        │  📁 MEMORY FILE SYSTEM  │
-                                        │  (Markdown Files)       │
-                                        ├─────────────────────────┤
-                                        │  memory/                │
-                                        │  ├── preferences/       │
-                                        │  ├── knowledge/         │
-                                        │  └── skills/            │
-                                        └─────────────────────────┘
+         ↑ HTTP RESTful API
+         │
+┌────────┴─────────────────────────────────────────────────────────────────────┐
+│                          CLI 客户端 (cli.py)                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  用户交互层                                                                   │
+│  ├── 用户输入/输出循环                                                       │
+│  ├── 进度提示 (🔍 💬 ✓)                                                      │
+│  └── 异步后台存储 (不阻塞用户)                                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  SimpleAgent                                                                 │
+│  ├── 调用 LLM 生成回答                                                       │
+│  ├── 调用 MemU Service API                                                  │
+│  └── 自动设置检索模式 (默认 smart)                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 2. 实际项目结构
 
 ```
 src/meow_agent/
-├── __init__.py           # 包初始化
-├── config.py             # 配置管理 (pydantic-settings)
-├── models.py             # 数据模型 (dataclasses)
-├── event_bus.py          # 异步事件总线
-├── main.py               # CLI 入口点
-├── memu/
+├── core/                       # 共享核心
 │   ├── __init__.py
-│   └── client.py         # MemU 客户端 (封装官方 SDK)
-└── agents/
-    ├── __init__.py
-    ├── main_agent.py     # 主代理 (用户交互)
-    └── memu_bot.py       # 记忆代理 (后台处理)
+│   ├── config.py              # 配置管理 (pydantic-settings)
+│   └── models.py              # 数据模型 (dataclasses)
+├── service/                   # MemU Service
+│   ├── __init__.py            # FastAPI app
+│   ├── main.py                # 启动入口
+│   ├── dependencies.py        # 依赖注入 + 动态配置
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── memory.py          # 记忆 API
+│   │   ├── config.py          # 配置 API
+│   │   └── health.py          # 健康检查
+│   └── models/
+│       ├── __init__.py
+│       └── schemas.py         # Pydantic 模型
 
-memory/                   # 记忆存储目录 (Markdown 文件系统)
-├── preferences/          # 用户偏好
-│   ├── communication_style.md
-│   └── topic_interests.md
-├── knowledge/            # 知识和事实
-│   ├── user_profile.md
-│   └── learned_facts.md
-├── skills/               # 技能和能力
-│   └── task_handling.md
-└── context/              # 上下文记忆
-    ├── recent_conversations/
-    └── pending_tasks/
-
-tests/
-└── test_basic.py         # 单元测试
+cli.py                        # CLI 客户端 (单文件)
+service.py                   # Service 启动脚本
 ```
 
 ## 3. 核心组件
